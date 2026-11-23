@@ -59,6 +59,7 @@ Siapkan database dan data awal:
 alembic upgrade head          # buat semua tabel + indeks
 python seed_master_data.py    # environment "Konstruksi" + kelas Hardhat & Safety Vest (sesuai model PPE)
 python create_admin.py        # buat akun admin pertama (interaktif)
+python create_admin.py --super-admin   # buat akun super admin
 python seed_demo_data.py      # opsional: data contoh untuk demo
 ```
 
@@ -129,7 +130,17 @@ Semua endpoint selain `register`, `login`, `/` dan `/health` membutuhkan header
 | POST | `/refresh` | Login | Tukar token yang masih berlaku dengan token baru |
 | POST | `/change-password` | Login | Ganti password sendiri |
 | POST | `/logout` | Login | Cabut token yang dipakai |
-| GET | `/me` | Login | Profil sendiri |
+| GET | `/me` | Login | Profil sendiri (+ `can_edit_username`: `false` = field username dikunci di UI) |
+| PATCH | `/me` | Super admin | Ubah username sendiri (`{"username": "..."}`); admin/user dijawab 403 |
+
+### Role & aturan profil
+| Role | Username | Password |
+|---|---|---|
+| `super_admin` | Bisa diubah (`PATCH /auth/me`) | Bisa diubah (`POST /auth/change-password`) |
+| `admin` | Terkunci (403) | Bisa diubah |
+| `user` | Terkunci (403) | Bisa diubah |
+
+`super_admin` punya semua hak `admin`. Akun super admin hanya bisa diubah/dinonaktifkan/dihapus super admin lain, dan role `super_admin` hanya bisa diberikan oleh super admin. Sistem menolak aksi yang menghabiskan super admin aktif terakhir. Role di kolom `users.role` berupa string biasa, jadi tidak perlu migrasi; promosikan akun yang ada dengan `UPDATE users SET role='super_admin' WHERE username='...'` atau pakai `create_admin.py --super-admin`.
 
 ### Users – `/users` (Admin)
 | Method | Path | Fungsi |
@@ -137,7 +148,7 @@ Semua endpoint selain `register`, `login`, `/` dan `/health` membutuhkan header
 | GET | `/` | Daftar user: `search`, `status`, `role`, `sort_order`, `limit`, `offset` |
 | POST | `/` | Buat user langsung aktif |
 | GET | `/{id}` | Detail user |
-| PATCH | `/{id}` | Ubah `name`, `username`, `role`, `password` (+ `confirm_password`) |
+| PATCH | `/{id}` | Ubah `name`, `username`, `role`, `password` (+ `confirm_password`). `username` hanya boleh super admin |
 | POST | `/{id}/approve` · `/reject` · `/deactivate` · `/activate` | Ubah status akun |
 | DELETE | `/{id}` | Soft delete |
 
@@ -192,6 +203,7 @@ Semua endpoint selain `register`, `login`, `/` dan `/health` membutuhkan header
 | GET | `/detection-logs/{id}/image` | Foto bukti (JPEG). Header `Authorization`, atau `?token=` untuk tag `<img>` |
 | GET | `/dashboard/summary` · `/trend` · `/violations` · `/breakdown` · `/recent-violations` · `/active-sessions` | Data dashboard |
 | GET | `/history/sessions` · `/history/violations` · `/history/violations/{id}` | Riwayat analisis |
+| GET | `/history/violations` | Filter: `source_id`, `location_id`, `session_id`, `compliance_status`, `apd_class_id`, `violation_type` (catatan pelanggaran, mis. `NO_HELMET` atau `helmet`; pelanggaran gabungan ikut tersaring), `search` (nama kamera/lokasi), `date_from`, `date_to`, `sort_order`, `limit`, `offset` |
 
 ## Keamanan
 
